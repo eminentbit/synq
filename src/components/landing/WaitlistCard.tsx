@@ -8,13 +8,46 @@ type WaitlistCardProps = {
 export function WaitlistCard({ className = "" }: WaitlistCardProps) {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!email) {
       return;
     }
-    setSubmitted(true);
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const apiUrl =
+        import.meta.env.MODE === "development"
+          ? "http://localhost:3000/api/waitlist"
+          : "/api/waitlist";
+
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to join waitlist");
+      }
+
+      setSubmitted(true);
+    } catch (err) {
+      console.error("Failed to submit to waitlist:", err);
+      setError(
+        err instanceof Error ? err.message : "Failed to join waitlist. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -40,6 +73,15 @@ export function WaitlistCard({ className = "" }: WaitlistCardProps) {
           </p>
         </div>
       ) : (
+        <>
+          {error && (
+            <div className="mt-4 rounded-xl border border-[#e6b0a3] bg-[#fef3f1] p-3">
+              <p className="text-sm text-[#c44c3a]">{error}</p>
+            </div>
+          )}
+          </>
+      )}
+      {!submitted && (
         <form onSubmit={onSubmit} className="mt-5 space-y-3">
           <label
             htmlFor="email"
@@ -59,9 +101,10 @@ export function WaitlistCard({ className = "" }: WaitlistCardProps) {
           />
           <button
             type="submit"
-            className="w-full rounded-xl bg-linear-to-br from-[#0f8f7b] to-[#14ad95] px-4 py-3 text-sm font-bold text-white shadow-lg shadow-[#0f8f7b]/30 transition hover:-translate-y-0.5"
+            disabled={loading}
+            className="w-full rounded-xl bg-linear-to-br from-[#0f8f7b] to-[#14ad95] px-4 py-3 text-sm font-bold text-white shadow-lg shadow-[#0f8f7b]/30 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Reserve My Spot
+            {loading ? "Joining..." : "Reserve My Spot"}
           </button>
           <p className="text-xs text-[#667270]">
             No spam. Unsubscribe any time.
